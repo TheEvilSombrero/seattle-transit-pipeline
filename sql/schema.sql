@@ -16,10 +16,24 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: gtfs_geom; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA gtfs_geom;
+
+
+--
 -- Name: gtfs_static; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA gtfs_static;
+
+
+--
+-- Name: meta; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA meta;
 
 
 --
@@ -39,6 +53,29 @@ COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types an
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: shapes_geom; Type: TABLE; Schema: gtfs_geom; Owner: -
+--
+
+CREATE TABLE gtfs_geom.shapes_geom (
+    shape_id text NOT NULL,
+    geom public.geometry(LineString,4326) NOT NULL,
+    n_points integer NOT NULL
+);
+
+
+--
+-- Name: stops_geom; Type: TABLE; Schema: gtfs_geom; Owner: -
+--
+
+CREATE TABLE gtfs_geom.stops_geom (
+    stop_id text NOT NULL,
+    geom public.geometry(Point,4326) NOT NULL,
+    stop_name text,
+    parent_station text
+);
+
 
 --
 -- Name: agency; Type: TABLE; Schema: gtfs_static; Owner: -
@@ -175,12 +212,74 @@ CREATE TABLE gtfs_static.trips (
 
 
 --
+-- Name: ingest_log; Type: TABLE; Schema: meta; Owner: -
+--
+
+CREATE TABLE meta.ingest_log (
+    ingest_id bigint NOT NULL,
+    source_name text NOT NULL,
+    snapshot_date date NOT NULL,
+    source_url text,
+    file_checksum text,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    completed_at timestamp with time zone,
+    status text DEFAULT 'started'::text NOT NULL,
+    row_counts jsonb,
+    error_message text,
+    notes text,
+    CONSTRAINT ingest_log_status_check CHECK ((status = ANY (ARRAY['started'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: ingest_log_ingest_id_seq; Type: SEQUENCE; Schema: meta; Owner: -
+--
+
+CREATE SEQUENCE meta.ingest_log_ingest_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: ingest_log_ingest_id_seq; Type: SEQUENCE OWNED BY; Schema: meta; Owner: -
+--
+
+ALTER SEQUENCE meta.ingest_log_ingest_id_seq OWNED BY meta.ingest_log.ingest_id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.schema_migrations (
     version character varying NOT NULL
 );
+
+
+--
+-- Name: ingest_log ingest_id; Type: DEFAULT; Schema: meta; Owner: -
+--
+
+ALTER TABLE ONLY meta.ingest_log ALTER COLUMN ingest_id SET DEFAULT nextval('meta.ingest_log_ingest_id_seq'::regclass);
+
+
+--
+-- Name: shapes_geom shapes_geom_pkey; Type: CONSTRAINT; Schema: gtfs_geom; Owner: -
+--
+
+ALTER TABLE ONLY gtfs_geom.shapes_geom
+    ADD CONSTRAINT shapes_geom_pkey PRIMARY KEY (shape_id);
+
+
+--
+-- Name: stops_geom stops_geom_pkey; Type: CONSTRAINT; Schema: gtfs_geom; Owner: -
+--
+
+ALTER TABLE ONLY gtfs_geom.stops_geom
+    ADD CONSTRAINT stops_geom_pkey PRIMARY KEY (stop_id);
 
 
 --
@@ -248,11 +347,33 @@ ALTER TABLE ONLY gtfs_static.trips
 
 
 --
+-- Name: ingest_log ingest_log_pkey; Type: CONSTRAINT; Schema: meta; Owner: -
+--
+
+ALTER TABLE ONLY meta.ingest_log
+    ADD CONSTRAINT ingest_log_pkey PRIMARY KEY (ingest_id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: shapes_geom_geom_idx; Type: INDEX; Schema: gtfs_geom; Owner: -
+--
+
+CREATE INDEX shapes_geom_geom_idx ON gtfs_geom.shapes_geom USING gist (geom);
+
+
+--
+-- Name: stops_geom_geom_idx; Type: INDEX; Schema: gtfs_geom; Owner: -
+--
+
+CREATE INDEX stops_geom_geom_idx ON gtfs_geom.stops_geom USING gist (geom);
 
 
 --
@@ -315,4 +436,9 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260529020222'),
     ('20260529023128'),
     ('20260529031546'),
-    ('20260529033826');
+    ('20260529033826'),
+    ('20260614205414'),
+    ('20260614211054'),
+    ('20260617013232'),
+    ('20260617014239'),
+    ('20260617014943');
