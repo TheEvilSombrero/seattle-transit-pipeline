@@ -182,6 +182,34 @@ def refresh_geom(conn: psycopg.Connection) -> dict[str, int]:
     conn.commit()
     return row_counts
 
+def compute_trip_progress(conn: psycopg.Connection) -> dict[str, int]:
+    """Linear-reference each scheduled stop onto its trip's shape geometry"""
+    row_counts: dict[str, int] = {}
+
+    with conn.cursor() as cur:
+        cur.execute("TRUNCATE gtfs_geom.trip_stop_progress")
+        cur.execute(
+            """
+            INSERT INTO gtfs_geom.trip_stop_progress
+                (trip_id, stop_sequence, stop_id, fraction, distance_meters)
+            SELECT
+                st.trip_id,
+                st.stop_sequence,
+                st.stop_id,
+                ST_LineLocatePoint(sh.geom, stp.geom) AS fraction,
+                ST_LineLocatePoint(sh.geom, stp.geom) * ST_Length(sh.geom::geography) AS distance_meters
+            FROM gtfs_static.stop_times   st
+            JOIN gtfs_static.trips        t     ON t.trip_id    = st.trip_id
+            JOIN gtfs_geom.shapes_geom    sh    ON sh.shape_id  = t.shape_id
+            JOIN gtfs_geom.stops_geom     stp   ON stp.stop_id  = st.stop_id
+            """
+        )
+        row_counts["trip_stop_progress"] = cur.rowcount
+        print(f"  computed trip_stop_progress: {cur.rowcount} rows")
+
+    conn.commit()
+    return row_counts
+
 def main() -> int:
     args = parse_args()
     snapshot_dir = Path(args.snapshot_dir)
@@ -194,6 +222,7 @@ def main() -> int:
         try:
             row_counts = load_all_tables(conn, snapshot_dir)
             row_counts.update(refresh_geom(conn))
+            row_counts.update(compute_trip_progress(conn))
             complete_ingest_log(conn, ingest_id, row_counts)
         except Exception as exc:
             fail_ingest_log(conn, ingest_id, str(exc))

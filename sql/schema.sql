@@ -78,6 +78,19 @@ CREATE TABLE gtfs_geom.stops_geom (
 
 
 --
+-- Name: trip_stop_progress; Type: TABLE; Schema: gtfs_geom; Owner: -
+--
+
+CREATE TABLE gtfs_geom.trip_stop_progress (
+    trip_id text NOT NULL,
+    stop_sequence integer NOT NULL,
+    stop_id text NOT NULL,
+    fraction double precision NOT NULL,
+    distance_meters double precision NOT NULL
+);
+
+
+--
 -- Name: agency; Type: TABLE; Schema: gtfs_static; Owner: -
 --
 
@@ -283,6 +296,14 @@ ALTER TABLE ONLY gtfs_geom.stops_geom
 
 
 --
+-- Name: trip_stop_progress trip_stop_progress_pkey; Type: CONSTRAINT; Schema: gtfs_geom; Owner: -
+--
+
+ALTER TABLE ONLY gtfs_geom.trip_stop_progress
+    ADD CONSTRAINT trip_stop_progress_pkey PRIMARY KEY (trip_id, stop_sequence);
+
+
+--
 -- Name: agency agency_pkey; Type: CONSTRAINT; Schema: gtfs_static; Owner: -
 --
 
@@ -441,4 +462,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260614211054'),
     ('20260617013232'),
     ('20260617014239'),
-    ('20260617014943');
+    ('20260617014943'),
+    ('20260619053434');
