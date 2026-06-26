@@ -23,6 +23,13 @@ CREATE SCHEMA gtfs_geom;
 
 
 --
+-- Name: gtfs_rt; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA gtfs_rt;
+
+
+--
 -- Name: gtfs_static; Type: SCHEMA; Schema: -; Owner: -
 --
 
@@ -88,6 +95,49 @@ CREATE TABLE gtfs_geom.trip_stop_progress (
     fraction double precision NOT NULL,
     distance_meters double precision NOT NULL
 );
+
+
+--
+-- Name: vehicle_positions; Type: TABLE; Schema: gtfs_rt; Owner: -
+--
+
+CREATE TABLE gtfs_rt.vehicle_positions (
+    ping_id bigint NOT NULL,
+    received_at timestamp with time zone DEFAULT now() NOT NULL,
+    feed_timestamp timestamp with time zone,
+    vehicle_id text NOT NULL,
+    trip_id text,
+    route_id text,
+    direction_id smallint,
+    start_date date,
+    vehicle_lat double precision NOT NULL,
+    vehicle_lon double precision NOT NULL,
+    bearing real,
+    speed real,
+    current_status text,
+    current_stop_seq integer,
+    stop_id text,
+    geom public.geometry(Point,4326) GENERATED ALWAYS AS (public.st_setsrid(public.st_makepoint(vehicle_lon, vehicle_lat), 4326)) STORED
+);
+
+
+--
+-- Name: vehicle_positions_ping_id_seq; Type: SEQUENCE; Schema: gtfs_rt; Owner: -
+--
+
+CREATE SEQUENCE gtfs_rt.vehicle_positions_ping_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: vehicle_positions_ping_id_seq; Type: SEQUENCE OWNED BY; Schema: gtfs_rt; Owner: -
+--
+
+ALTER SEQUENCE gtfs_rt.vehicle_positions_ping_id_seq OWNED BY gtfs_rt.vehicle_positions.ping_id;
 
 
 --
@@ -273,6 +323,13 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: vehicle_positions ping_id; Type: DEFAULT; Schema: gtfs_rt; Owner: -
+--
+
+ALTER TABLE ONLY gtfs_rt.vehicle_positions ALTER COLUMN ping_id SET DEFAULT nextval('gtfs_rt.vehicle_positions_ping_id_seq'::regclass);
+
+
+--
 -- Name: ingest_log ingest_id; Type: DEFAULT; Schema: meta; Owner: -
 --
 
@@ -301,6 +358,14 @@ ALTER TABLE ONLY gtfs_geom.stops_geom
 
 ALTER TABLE ONLY gtfs_geom.trip_stop_progress
     ADD CONSTRAINT trip_stop_progress_pkey PRIMARY KEY (trip_id, stop_sequence);
+
+
+--
+-- Name: vehicle_positions vehicle_positions_pkey; Type: CONSTRAINT; Schema: gtfs_rt; Owner: -
+--
+
+ALTER TABLE ONLY gtfs_rt.vehicle_positions
+    ADD CONSTRAINT vehicle_positions_pkey PRIMARY KEY (ping_id);
 
 
 --
@@ -398,6 +463,27 @@ CREATE INDEX stops_geom_geom_idx ON gtfs_geom.stops_geom USING gist (geom);
 
 
 --
+-- Name: vehicle_positions_geom_idx; Type: INDEX; Schema: gtfs_rt; Owner: -
+--
+
+CREATE INDEX vehicle_positions_geom_idx ON gtfs_rt.vehicle_positions USING gist (geom);
+
+
+--
+-- Name: vehicle_positions_received_idx; Type: INDEX; Schema: gtfs_rt; Owner: -
+--
+
+CREATE INDEX vehicle_positions_received_idx ON gtfs_rt.vehicle_positions USING btree (received_at);
+
+
+--
+-- Name: vehicle_positions_trip_received_idx; Type: INDEX; Schema: gtfs_rt; Owner: -
+--
+
+CREATE INDEX vehicle_positions_trip_received_idx ON gtfs_rt.vehicle_positions USING btree (trip_id, received_at);
+
+
+--
 -- Name: routes routes_agency_id_fkey; Type: FK CONSTRAINT; Schema: gtfs_static; Owner: -
 --
 
@@ -463,4 +549,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260617013232'),
     ('20260617014239'),
     ('20260617014943'),
-    ('20260619053434');
+    ('20260619053434'),
+    ('20260620062831'),
+    ('20260624001018');

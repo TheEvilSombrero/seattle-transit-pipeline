@@ -81,8 +81,30 @@ def start_ingest_log(
     conn.commit()
     return ingest_id
 
+def _csv_header(csv_path: Path) -> list[str]:
+    """Return the column names from the first line of a GTFS CSV file."""
+    with open(csv_path, "r", encoding="utf-8-sig") as f:
+        return [c.strip() for c in f.readline().strip().split(",")]
+
+
+def _table_columns(cur: psycopg.Cursor, schema: str, table: str) -> list[str]:
+    """Return all column names defined for a table, in ordinal order."""
+    cur.execute(
+        """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = %s AND table_name = %s
+        ORDER BY ordinal_position
+        """,
+        (schema, table),
+    )
+    return [r[0] for r in cur.fetchall()]
+
+
 def load_all_tables(conn: psycopg.Connection, snapshot_dir: Path) -> dict[str, int]:
-    """TRUNCATE all gtfs_static tables, then COPY each CSV. Return {table: rows}."""
+    """TRUNCATE all gtfs_static tables, then COPY each CSV using the intersection
+    of CSV header columns and table columns. Resilient to schema drift between
+    GTFS snapshots."""
     row_counts: dict[str, int] = {}
 
     with conn.cursor() as cur:
@@ -91,12 +113,27 @@ def load_all_tables(conn: psycopg.Connection, snapshot_dir: Path) -> dict[str, i
 
         for table in TABLES:
             csv_path = snapshot_dir / f"{table}.txt"
-            copy_sql = f"COPY gtfs_static.{table} FROM STDIN WITH (FORMAT csv, HEADER true, NULL '')"
+            csv_cols = _csv_header(csv_path)
+            table_cols = set(_table_columns(cur, "gtfs_static", table))
+
+            # Use CSV order (so positional COPY fields line up with column list);
+            # silently skip CSV cols absent from the table.
+            shared = [c for c in csv_cols if c in table_cols]
+            skipped = [c for c in csv_cols if c not in table_cols]
+
+            col_list = ", ".join(f'"{c}"' for c in shared)
+            copy_sql = (
+                f'COPY gtfs_static.{table} ({col_list}) '
+                f"FROM STDIN WITH (FORMAT csv, HEADER true, NULL '')"
+            )
+
             with open(csv_path, "rb") as f, cur.copy(copy_sql) as copy:
                 while data := f.read(8192):
                     copy.write(data)
             row_counts[table] = cur.rowcount
-            print(f"  loaded {table}: {cur.rowcount} rows")
+
+            extra = f" (skipped CSV cols: {', '.join(skipped)})" if skipped else ""
+            print(f"  loaded {table}: {cur.rowcount} rows{extra}")
 
     conn.commit()
     return row_counts
