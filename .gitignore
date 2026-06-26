@@ -7,6 +7,7 @@ __pycache__/
 # Secrets 
 .env
 .env.example 
+.gitignore
 
 # GTFS zips, data dumps - can be large, reproducable by re-downloading 
 data/
