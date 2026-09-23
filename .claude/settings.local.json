@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:www.soundtransit.org)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Bash(docker info *)",
+      "WebFetch(domain:hub.docker.com)",
+      "Bash(docker manifest *)",
+      "Bash(awk -F',' 'NR>1 {print $6}' sound-transit-20260514/routes.txt)",
+      "Bash(awk -F',' 'NR==1 || $6==0 || $6==2' sound-transit-20260514/routes.txt)",
+      "Bash(python3 -)",
+      "Read(//Users/viduldasan/Downloads/SnowPro/**)",
+      "Read(//Users/viduldasan/Documents/Career/**)",
+      "Bash(mkdir -p \"/Users/viduldasan/Documents/Career/Certifications/SnowPro-Advanced-Data-Engineer\")",
+      "Bash(mv /Users/viduldasan/Downloads/SnowPro/00_SYLLABUS.md /Users/viduldasan/Downloads/SnowPro/07_capstone_pipeline.md /Users/viduldasan/Downloads/SnowPro/README.md /Users/viduldasan/Downloads/SnowPro/TUTOR_INSTRUCTIONS.md /Users/viduldasan/Downloads/SnowPro/snowflake-cert-prep.zip \"/Users/viduldasan/Documents/Career/Certifications/SnowPro-Advanced-Data-Engineer/\")",
+      "Bash(rmdir /Users/viduldasan/Downloads/SnowPro)",
+      "Bash(dbmate status *)",
+      "WebFetch(domain:developer.onebusaway.org)",
+      "Bash(make load *)",
+      "Bash(make sql *)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(uv run *)",
+      "Bash(brew uses *)",
+      "Bash(command -v pyenv)",
+      "Bash(pyenv versions *)"
+    ]
+  }
+}
