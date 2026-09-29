@@ -167,3 +167,33 @@ When a hop disagrees, apply the debugging framework: which boundary, minimal fai
 2. Airflow in docker-compose: one DAG, tasks poll -> land -> copy -> dbt build -> reconcile.
 3. Snowpipe with S3 event notifications instead of scheduled COPY.
 4. Terraform for the bucket, IAM user, role, and policies (you will have built them by hand once, so the Terraform is a transcription, not a mystery).
+
+---
+
+## Progress log
+
+### 2026-09-29: paused for DSA interview prep, resume ~mid-October
+
+**Pre-work: done.**
+- AWS account, region us-west-2. Root has passkey + Duo MFA. Monthly budget alert at $5.
+- Admin IAM user (console + MFA) for all console work. Root no longer used.
+- Machine IAM user `transit-pipeline-writer`, no console access, inline policy `reconciliation-combined`: Put/Get on `arn:aws:s3:::viduldasan-transit-raw-usw2/*`, ListBucket on the bucket ARN. No delete, by design.
+- Bucket `viduldasan-transit-raw-usw2`, general purpose, public access blocked, versioning off, SSE-S3, tag project=transit-pipeline.
+- Smoke test passed from `uv run python`: list (KeyCount 0), put (ETag returned, AES256), list (KeyCount 1), delete -> AccessDenied as expected. Test object removed via console.
+- `boto3` added. `.envrc` (PATH_add + dotenv) with direnv. AWS vars in `.env` and `.env.example`.
+- `.gitignore` housekeeping fixed and committed.
+- Snowflake trial confirmed alive on 2026-09-22, region AWS_US_WEST_2, key-pair auth works from dbt-sprint `.env`. Trial lapses ~Oct 10-11: **decide convert-with-card vs. let lapse before resuming.**
+
+**Step 1: not started.** `ingest/landing.py` does not exist yet.
+
+**Open finding to resolve before wiring the poller (stale feeds):**
+`gtfs_rt.vehicle_positions` has a serial PK only, no unique constraint, and `insert_pings` has no ON CONFLICT. If the agency serves the same feed_timestamp on two consecutive polls, Postgres inserts every vehicle twice while the deterministic S3 key keeps one object. That breaks invariant #1 (Postgres rowcount == S3 row_count).
+
+Next actions, in order:
+1. Start Docker Desktop, `make up`, `make psql`. Query `gtfs_rt.vehicle_positions` grouped by `(feed_timestamp, vehicle_id)` with `having count(*) > 1`. Answers two questions: have stale feeds already occurred, and is the pair unique within one feed. Save the query to `sql/queries/`.
+2. If unique within a feed: dbmate migration adding `UNIQUE (feed_timestamp, vehicle_id)`; change `insert_pings` to `ON CONFLICT DO NOTHING`. Rowcount then drops to 0 on a stale feed by itself.
+3. Optional after (2): early return in `main()` when feed_timestamp equals the latest in Postgres, to skip both sinks.
+4. Then `ingest/landing.py` (three signatures above), wire into `main()` between parse and insert, log each put to `meta.ingest_log` (ETag in file_checksum, row_count in row_counts).
+5. ADR 0005: raw format decision (NDJSON vs protobuf) plus the stale-feed handling.
+
+**Concepts settled this leg (for talking points):** bucket-vs-object ARNs and why ListBucket needs the bucket ARN; deny-by-default and reading an AccessDenied's four parts; root vs IAM user vs role, and why long-lived keys are the exception; event time vs processing time for partition keys; deterministic keys make overwrites idempotent; Postgres enforces UNIQUE, Snowflake does not (hence dbt tests there); dbt `unique_key` + incremental filter == Postgres UNIQUE + ON CONFLICT == S3 deterministic key.
